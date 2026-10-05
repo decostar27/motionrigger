@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MotionRig – Free Auto-Rigging & Motion Capture</title>
+  <meta name="description" content="Free browser-based motion capture and auto-rigging tool. Track human poses from camera or video and retarget animations onto 3D models (OBJ/FBX)." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/animations.css" />
+  <link rel="stylesheet" href="/src/styles/main.css" />
+
+  <!-- MediaPipe Vision WASM via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm/vision_bundle.mjs" type="module"></script>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-logo">
+        <span class="logo-icon">⚡</span>
+        <h1 class="logo-text">MotionRig</h1>
+      </div>
+      <div class="loading-bar-container">
+        <div class="loading-bar" id="loading-bar"></div>
+      </div>
+      <p class="loading-status" id="loading-status">Initializing...</p>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="app hidden">
+    <!-- Ambient Background -->
+    <div class="ambient-bg">
+      <div class="ambient-orb orb-1"></div>
+      <div class="ambient-orb orb-2"></div>
+      <div class="ambient-orb orb-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="app-header">
+      <div class="header-left">
+        <span class="header-logo">⚡</span>
+        <h1 class="header-title">MotionRig</h1>
+        <span class="header-badge">FREE</span>
+      </div>
+      <div class="header-center">
+        <div class="mode-switcher" id="mode-switcher">
+          <button class="mode-btn active" data-mode="camera" id="btn-mode-camera">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Camera
+          </button>
+          <button class="mode-btn" data-mode="video" id="btn-mode-video">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            Video
+          </button>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator" id="status-indicator">
+          <span class="status-dot"></span>
+          <span class="status-text" id="status-text">Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+      <!-- Left Panel: Camera / Video -->
+      <section class="panel panel-left" id="panel-left">
+        <div class="panel-header">
+          <h2 class="panel-title" id="panel-left-title">Motion Capture</h2>
+          <div class="panel-actions">
+            <button class="icon-btn" id="btn-toggle-skeleton" title="Toggle Skeleton Overlay">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="16" x2="8" y2="22"/><line x1="12" y1="16" x2="16" y2="22"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-fullscreen-capture" title="Fullscreen">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="capture-container" id="capture-container">
+          <!-- Camera View -->
+          <div class="camera-view" id="camera-view">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <canvas id="pose-overlay" class="pose-overlay"></canvas>
+            <div class="camera-placeholder" id="camera-placeholder">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <p>Click "Start Camera" to begin</p>
+            </div>
+          </div>
+
+          <!-- Video View -->
+          <div class="video-view hidden" id="video-view">
+            <video id="video-player" crossorigin="anonymous"></video>
+            <canvas id="video-pose-overlay" class="pose-overlay"></canvas>
+            <div class="video-placeholder" id="video-placeholder">
+              <div class="upload-zone" id="video-upload-zone">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p>Drag & drop a video file</p>
+                <span class="upload-hint">or click to browse (MP4, WebM, MOV)</span>
+                <input type="file" id="video-file-input" accept="video/*" hidden />
+              </div>
+            </div>
+            <div class="video-controls hidden" id="video-controls">
+              <button class="video-ctrl-btn" id="btn-video-play">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </button>
+              <div class="video-timeline" id="video-timeline">
+                <div class="timeline-progress" id="timeline-progress"></div>
+                <div class="timeline-handle" id="timeline-handle"></div>
+              </div>
+              <span class="video-time" id="video-time">0:00 / 0:00</span>
+              <select class="video-speed" id="video-speed">
+                <option value="0.25">0.25x</option>
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capture Controls -->
+        <div class="capture-controls" id="capture-controls">
+          <button class="btn btn-primary" id="btn-start-camera">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Start Camera
+          </button>
+          <button class="btn btn-secondary hidden" id="btn-stop-camera">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+            Stop
+          </button>
+          <button class="btn btn-accent" id="btn-record">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+            Record Motion
+          </button>
+          <button class="btn btn-ghost" id="btn-export-motion">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+        </div>
+
+        <!-- Pose Stats -->
+        <div class="pose-stats" id="pose-stats">
+          <div class="stat-item">
+            <span class="stat-label">FPS</span>
+            <span class="stat-value" id="stat-fps">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Landmarks</span>
+            <span class="stat-value" id="stat-landmarks">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Confidence</span>
+            <span class="stat-value" id="stat-confidence">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Recording</span>
+            <span class="stat-value" id="stat-recording">OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle" id="resize-handle">
+        <div class="resize-grip"></div>
+      </div>
+
+      <!-- Right Panel: 3D Viewport -->
+      <section class="panel panel-right" id="panel-right">
+        <div class="panel-header">
+          <h2 class="panel-title">3D Viewport</h2>
+          <div class="panel-actions">
+            <button class="icon-btn" id="btn-reset-camera-3d" title="Reset Camera">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-toggle-grid" title="Toggle Grid">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-toggle-wireframe" title="Toggle Wireframe">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-fullscreen-viewport" title="Fullscreen">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="viewport-container" id="viewport-container">
+          <canvas id="viewport-canvas"></canvas>
+
+          <!-- Model Upload Overlay -->
+          <div class="model-upload-overlay" id="model-upload-overlay">
+            <div class="upload-zone model-upload-zone" id="model-upload-zone">
+              <div class="upload-icon-3d">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              </div>
+              <h3>Load 3D Model</h3>
+              <p>Drag & drop your model file here</p>
+              <span class="upload-hint">Supports OBJ and FBX formats</span>
+              <div class="upload-btn-row">
+                <button class="btn btn-primary btn-sm" id="btn-browse-model">Browse Files</button>
+              </div>
+              <input type="file" id="model-file-input" accept=".obj,.fbx,.gltf,.glb,.bin,.mtl,.png,.jpg,.jpeg,.tga" multiple hidden />
+            </div>
+          </div>
+
+          <!-- Rigging Status -->
+          <div class="rigging-status hidden" id="rigging-status">
+            <div class="rigging-status-inner">
+              <div class="rigging-spinner"></div>
+              <span id="rigging-status-text">Auto-rigging model...</span>
+            </div>
+          </div>
+
+          <!-- Rigging Mode Overlay -->
+          <div class="rig-mode-overlay hidden" id="rig-mode-overlay">
+            <!-- Marker List Panel -->
+            <div class="rig-panel" id="rig-panel">
+              <div class="rig-panel-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="16" x2="8" y2="22"/><line x1="12" y1="16" x2="16" y2="22"/></svg>
+                <span>Rig Points</span>
+                <span class="rig-progress" id="rig-progress">0 / 13</span>
+              </div>
+              <div class="rig-marker-list" id="rig-marker-list">
+                <!-- Populated by JS -->
+              </div>
+              <div class="rig-panel-actions">
+                <button class="btn btn-ghost btn-sm" id="btn-rig-undo" title="Undo last marker">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  Undo
+                </button>
+                <button class="btn btn-ghost btn-sm" id="btn-rig-reset" title="Reset all markers">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Instruction Bar -->
+            <div class="rig-instruction-bar" id="rig-instruction-bar">
+              <div class="rig-instruction-dot" id="rig-instruction-dot"></div>
+              <span class="rig-instruction-text" id="rig-instruction-text">Click on the model to place: <strong>Chin</strong></span>
+              <div class="rig-instruction-hint">Left click = place · Right click = undo</div>
+            </div>
+
+            <!-- Bottom action buttons -->
+            <div class="rig-action-bar" id="rig-action-bar">
+              <button class="btn btn-ghost" id="btn-rig-cancel">Cancel</button>
+              <button class="btn btn-primary" id="btn-rig-apply" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Apply Rig
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Info -->
+        <div class="model-info hidden" id="model-info">
+          <div class="model-info-row">
+            <span class="model-info-label">Model:</span>
+            <span class="model-info-value" id="info-model-name">--</span>
+          </div>
+          <div class="model-info-row">
+            <span class="model-info-label">Vertices:</span>
+            <span class="model-info-value" id="info-vertices">--</span>
+          </div>
+          <div class="model-info-row">
+            <span class="model-info-label">Faces:</span>
+            <span class="model-info-value" id="info-faces">--</span>
+          </div>
+          <div class="model-info-row">
+            <span class="model-info-label">Skeleton:</span>
+            <span class="model-info-value" id="info-skeleton">None</span>
+          </div>
+          <div class="model-info-row">
+            <span class="model-info-label">Rigged:</span>
+            <span class="model-info-value" id="info-rigged">No</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-remove-model">Remove Model</button>
+          <button class="btn btn-accent btn-sm" id="btn-manual-rig">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="15"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="12" y1="15" x2="8" y2="21"/><line x1="12" y1="15" x2="16" y2="21"/></svg>
+            Rig Model
+          </button>
+          <button class="btn btn-ghost btn-sm" id="btn-auto-rig">Auto-Rig</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

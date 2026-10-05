@@ -1,0 +1,217 @@
+/* ========================================
+   MotionRig – Keyframe Animations
+   ======================================== */
+
+/* Loading bar shimmer */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Loading bar progress */
+@keyframes loadProgress {
+  0% { width: 0%; }
+  20% { width: 25%; }
+  50% { width: 60%; }
+  80% { width: 85%; }
+  100% { width: 100%; }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Fade in up */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade in scale */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide in from left */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide in from right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Pulse glow */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 224, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(0, 224, 255, 0.15);
+  }
+}
+
+/* Record pulse */
+@keyframes recordPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(255, 59, 48, 0.3);
+  }
+}
+
+/* Status dot blink */
+@keyframes statusBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Spin */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton bone draw */
+@keyframes boneDraw {
+  from {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Float */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Border dash march */
+@keyframes dashMarch {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -20; }
+}
+
+/* Upload zone border animation */
+@keyframes borderDash {
+  to { background-position: 100% 100%; }
+}
+
+/* Toast slide in */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Toast slide out */
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+}
+
+/* Gradient shift */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Logo pulse */
+@keyframes logoPulse {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(0, 224, 255, 0.5),
+                 0 0 30px rgba(0, 224, 255, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(0, 224, 255, 0.8),
+                 0 0 50px rgba(0, 224, 255, 0.4),
+                 0 0 80px rgba(139, 92, 246, 0.2);
+  }
+}
+
+/* Rigging spinner */
+@keyframes riggingSpin {
+  0% {
+    transform: rotate(0deg);
+    border-color: rgba(0, 224, 255, 0.2);
+    border-top-color: #00e0ff;
+  }
+  50% {
+    border-color: rgba(139, 92, 246, 0.2);
+    border-top-color: #8b5cf6;
+  }
+  100% {
+    transform: rotate(360deg);
+    border-color: rgba(0, 224, 255, 0.2);
+    border-top-color: #00e0ff;
+  }
+}
+
+/* Noise grain overlay (subtle) */
+@keyframes noiseShift {
+  0% { transform: translate(0, 0); }
+  10% { transform: translate(-5%, -5%); }
+  20% { transform: translate(-10%, 5%); }
+  30% { transform: translate(5%, -10%); }
+  40% { transform: translate(-5%, 15%); }
+  50% { transform: translate(-10%, 5%); }
+  60% { transform: translate(15%, 0); }
+  70% { transform: translate(0, 10%); }
+  80% { transform: translate(-15%, 0); }
+  90% { transform: translate(10%, 5%); }
+  100% { transform: translate(5%, 0); }
+}
+
+/* Orb float */
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5%, 5%) scale(1.1); }
+  100% { transform: translate(-5%, -5%) scale(0.9); }
+}
