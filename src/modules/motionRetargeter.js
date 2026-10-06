@@ -6,7 +6,24 @@
 
 import * as THREE from 'three';
 import { LANDMARKS, midpoint } from '../utils/landmarkUtils.js';
-import { BONE_NAMES, computeBoneRotation } from '../utils/skeletonUtils.js';
+import { BONE_NAMES, computeTargetDirection, quaternionFromDirections } from '../utils/skeletonUtils.js';
+
+// Define the primary child for each animated bone to determine its direction vector
+const BONE_DIRECTIONS = {
+  [BONE_NAMES.HIPS]: BONE_NAMES.SPINE,
+  [BONE_NAMES.SPINE]: BONE_NAMES.SPINE1,
+  [BONE_NAMES.SPINE1]: BONE_NAMES.SPINE2,
+  [BONE_NAMES.SPINE2]: BONE_NAMES.NECK,
+  [BONE_NAMES.NECK]: BONE_NAMES.HEAD,
+  [BONE_NAMES.LEFT_ARM]: BONE_NAMES.LEFT_FOREARM,
+  [BONE_NAMES.LEFT_FOREARM]: BONE_NAMES.LEFT_HAND,
+  [BONE_NAMES.RIGHT_ARM]: BONE_NAMES.RIGHT_FOREARM,
+  [BONE_NAMES.RIGHT_FOREARM]: BONE_NAMES.RIGHT_HAND,
+  [BONE_NAMES.LEFT_UP_LEG]: BONE_NAMES.LEFT_LEG,
+  [BONE_NAMES.LEFT_LEG]: BONE_NAMES.LEFT_FOOT,
+  [BONE_NAMES.RIGHT_UP_LEG]: BONE_NAMES.RIGHT_LEG,
+  [BONE_NAMES.RIGHT_LEG]: BONE_NAMES.RIGHT_FOOT,
+};
 
 export class MotionRetargeter {
   constructor() {
@@ -17,9 +34,11 @@ export class MotionRetargeter {
     this._prevRotations = {};
     this._smoothingFactor = 0.35;
 
-    // Rest pose quaternions (saved when binding)
+    // Rest pose quaternions and directions (saved when binding)
     this._restPose = {};
     this._restPosition = {};
+    this._restWorldQuat = {};
+    this._restWorldDir = {};
 
     // Bones that we animate
     this._animatedBones = [
@@ -49,9 +68,48 @@ export class MotionRetargeter {
     // Save rest pose
     this._restPose = {};
     this._restPosition = {};
+    this._restWorldQuat = {};
+    this._restWorldDir = {};
+    
+    // Ensure world matrices are fully updated at rest pose
+    const rootBone = boneMapping[BONE_NAMES.HIPS];
+    if (rootBone) {
+        rootBone.updateWorldMatrix(true, true);
+    } else {
+        // Fallback update all
+        for (const bone of Object.values(boneMapping)) {
+            bone.updateWorldMatrix(true, true);
+        }
+    }
+
     for (const [name, bone] of Object.entries(boneMapping)) {
       this._restPose[name] = bone.quaternion.clone();
       this._restPosition[name] = bone.position.clone();
+      
+      const worldQuat = new THREE.Quaternion();
+      bone.getWorldQuaternion(worldQuat);
+      this._restWorldQuat[name] = worldQuat;
+      
+      // Calculate rest world direction if it has a defined child
+      const childName = BONE_DIRECTIONS[name];
+      const childBone = childName ? boneMapping[childName] : null;
+      
+      if (childBone) {
+        const bonePos = new THREE.Vector3();
+        const childPos = new THREE.Vector3();
+        bone.getWorldPosition(bonePos);
+        childBone.getWorldPosition(childPos);
+        
+        const dir = new THREE.Vector3().subVectors(childPos, bonePos);
+        if (dir.lengthSq() > 0.0001) {
+            dir.normalize();
+            this._restWorldDir[name] = dir;
+        } else {
+            this._restWorldDir[name] = null;
+        }
+      } else {
+        this._restWorldDir[name] = null;
+      }
     }
 
     this._prevRotations = {};
@@ -76,22 +134,39 @@ export class MotionRetargeter {
       const bone = this.boneMapping[boneName];
       if (!bone) continue;
 
-      // Compute target rotation from landmarks
-      const targetQuat = computeBoneRotation(boneName, landmarks);
+      const restDir = this._restWorldDir[boneName];
+      const restWorldQuat = this._restWorldQuat[boneName];
+      const restLocalQuat = this._restPose[boneName];
+      
+      let targetLocalQuat = restLocalQuat.clone();
 
-      // Apply rest pose offset
-      const restQuat = this._restPose[boneName];
-      if (restQuat) {
-        // For existing skeletons, we apply relative rotation
-        // targetQuat = delta * restQuat
-        targetQuat.multiply(restQuat);
+      if (restDir && restWorldQuat) {
+        // Compute target direction from landmarks in world space
+        const targetDir = computeTargetDirection(boneName, landmarks);
+        
+        if (targetDir) {
+          // Compute rotation needed in world space to align restDir to targetDir
+          const deltaWorldQuat = quaternionFromDirections(restDir, targetDir);
+          
+          // Apply this delta rotation to the bone's rest world quaternion
+          const targetWorldQuat = deltaWorldQuat.clone().multiply(restWorldQuat);
+          
+          // Convert the new world quaternion back to local space
+          const parentWorldQuat = new THREE.Quaternion();
+          if (bone.parent) {
+            bone.parent.updateWorldMatrix(true, false);
+            bone.parent.getWorldQuaternion(parentWorldQuat);
+          }
+          targetLocalQuat = parentWorldQuat.invert().multiply(targetWorldQuat);
+        }
       }
 
       // Smooth the rotation
-      const smoothedQuat = this._smoothRotation(boneName, targetQuat);
+      const smoothedQuat = this._smoothRotation(boneName, targetLocalQuat);
 
       // Apply
       bone.quaternion.copy(smoothedQuat);
+      bone.updateWorldMatrix(false, false);
     }
   }
 

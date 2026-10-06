@@ -237,14 +237,13 @@ export function quaternionFromDirections(fromDir, toDir) {
 }
 
 /**
- * Compute bone rotation from MediaPipe landmarks
- * Converts landmark positions to bone-local quaternion rotations
+ * Compute bone target direction from MediaPipe landmarks
+ * Returns a normalized direction vector in world space
  */
-export function computeBoneRotation(boneName, landmarks, restPoseDir) {
+export function computeTargetDirection(boneName, landmarks) {
   const L = LANDMARKS;
 
   let fromPos, toPos;
-  let refDir = new THREE.Vector3(0, 1, 0); // Default up
 
   switch (boneName) {
     case BONE_NAMES.HIPS: {
@@ -252,10 +251,8 @@ export function computeBoneRotation(boneName, landmarks, restPoseDir) {
       const rightHip = landmarks[L.RIGHT_HIP];
       const leftShoulder = landmarks[L.LEFT_SHOULDER];
       const rightShoulder = landmarks[L.RIGHT_SHOULDER];
-      const hipMid = midpoint(leftHip, rightHip);
-      const shoulderMid = midpoint(leftShoulder, rightShoulder);
-      fromPos = hipMid;
-      toPos = shoulderMid;
+      fromPos = midpoint(leftHip, rightHip);
+      toPos = midpoint(leftShoulder, rightShoulder);
       break;
     }
     case BONE_NAMES.SPINE:
@@ -287,56 +284,48 @@ export function computeBoneRotation(boneName, landmarks, restPoseDir) {
     case BONE_NAMES.LEFT_ARM: {
       fromPos = landmarks[L.LEFT_SHOULDER];
       toPos = landmarks[L.LEFT_ELBOW];
-      refDir = new THREE.Vector3(1, 0, 0);
       break;
     }
     case BONE_NAMES.LEFT_FOREARM: {
       fromPos = landmarks[L.LEFT_ELBOW];
       toPos = landmarks[L.LEFT_WRIST];
-      refDir = new THREE.Vector3(1, 0, 0);
       break;
     }
     case BONE_NAMES.RIGHT_ARM: {
       fromPos = landmarks[L.RIGHT_SHOULDER];
       toPos = landmarks[L.RIGHT_ELBOW];
-      refDir = new THREE.Vector3(-1, 0, 0);
       break;
     }
     case BONE_NAMES.RIGHT_FOREARM: {
       fromPos = landmarks[L.RIGHT_ELBOW];
       toPos = landmarks[L.RIGHT_WRIST];
-      refDir = new THREE.Vector3(-1, 0, 0);
       break;
     }
     case BONE_NAMES.LEFT_UP_LEG: {
       fromPos = landmarks[L.LEFT_HIP];
       toPos = landmarks[L.LEFT_KNEE];
-      refDir = new THREE.Vector3(0, -1, 0);
       break;
     }
     case BONE_NAMES.LEFT_LEG: {
       fromPos = landmarks[L.LEFT_KNEE];
       toPos = landmarks[L.LEFT_ANKLE];
-      refDir = new THREE.Vector3(0, -1, 0);
       break;
     }
     case BONE_NAMES.RIGHT_UP_LEG: {
       fromPos = landmarks[L.RIGHT_HIP];
       toPos = landmarks[L.RIGHT_KNEE];
-      refDir = new THREE.Vector3(0, -1, 0);
       break;
     }
     case BONE_NAMES.RIGHT_LEG: {
       fromPos = landmarks[L.RIGHT_KNEE];
       toPos = landmarks[L.RIGHT_ANKLE];
-      refDir = new THREE.Vector3(0, -1, 0);
       break;
     }
     default:
-      return new THREE.Quaternion();
+      return null;
   }
 
-  if (!fromPos || !toPos) return new THREE.Quaternion();
+  if (!fromPos || !toPos) return null;
 
   // MediaPipe uses normalized coords: x right, y down, z toward camera
   // Three.js: x right, y up, z toward viewer
@@ -346,10 +335,7 @@ export function computeBoneRotation(boneName, landmarks, restPoseDir) {
     -(toPos.z - fromPos.z)  // Flip Z
   ).normalize();
 
-  const quat = new THREE.Quaternion();
-  quat.setFromUnitVectors(refDir, dir);
-
-  return quat;
+  return dir;
 }
 
 /**
